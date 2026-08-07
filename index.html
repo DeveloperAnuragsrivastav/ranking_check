@@ -816,14 +816,37 @@
     // ==========================================
     // AUTH HEADER INITIALIZATION
     // ==========================================
+    const AUTH_STORAGE_KEY = 'ranking-check-auth-header';
+
+    function getStoredAuthHeader() {
+      return localStorage.getItem(AUTH_STORAGE_KEY) || '';
+    }
+
+    function saveAuthHeader(value) {
+      if (value) {
+        localStorage.setItem(AUTH_STORAGE_KEY, value);
+      } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    }
+
     function getActiveAuthHeader() {
       const customVal = customAuthInput.value.trim();
       if (customVal) {
         const normalized = customVal.trim();
         if (/^basic\s+/i.test(normalized)) {
+          saveAuthHeader(normalized);
           return normalized;
         }
-        return `Basic ${normalized}`;
+        const prefixed = `Basic ${normalized}`;
+        saveAuthHeader(prefixed);
+        return prefixed;
+      }
+
+      const stored = getStoredAuthHeader();
+      if (stored) {
+        customAuthInput.value = stored;
+        return stored;
       }
       return DFS_AUTH;
     }
@@ -840,12 +863,19 @@
 
     customAuthInput.addEventListener('input', () => {
       const val = customAuthInput.value.trim();
+      saveAuthHeader(val);
       if (val) {
         authStatusDisplay.textContent = "Auth: Custom Token Configured";
       } else {
         authStatusDisplay.textContent = "Auth: Default Placeholder";
       }
     });
+
+    const initialStoredAuth = getStoredAuthHeader();
+    if (initialStoredAuth) {
+      customAuthInput.value = initialStoredAuth;
+      authStatusDisplay.textContent = "Auth: Custom Token Configured";
+    }
 
     // ==========================================
     // DOMAIN SANITIZATION HELPER
@@ -961,44 +991,38 @@
       }
     }
 
-    // STEP 1: POST /v3/serp/google/organic/task_post
     async function createTask({ keyword, domain, locationCode, device, authHeader }) {
-      const url = "https://api.dataforseo.com/v3/serp/google/organic/task_post";
+      const url = "/api/serp";
       
-      const payload = [
-        {
-          "keyword": keyword,
-          "location_code": locationCode,
-          "language_code": "en",
-          "device": device,
-          "target": domain,
-          "priority": 2
-        }
-      ];
+      const payload = {
+        keyword,
+        domain,
+        locationCode,
+        device,
+        authHeader
+      };
 
       let response;
       try {
         response = await fetch(url, {
           method: "POST",
           headers: {
-            "Authorization": authHeader,
             "Content-Type": "application/json"
           },
           body: JSON.stringify(payload)
         });
       } catch (networkErr) {
-        // Catch CORS / Network level errors specifically
         throw new Error(`CORS_OR_NETWORK: ${networkErr.message}`);
       }
+
+      const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error("Authentication failed (401). Please check your DataForSEO credentials.");
         }
-        throw new Error(`Task creation HTTP error: ${response.status} ${response.statusText}`);
+        throw new Error(data.error || `Task creation HTTP error: ${response.status} ${response.statusText}`);
       }
-
-      const data = await response.json();
 
       if (data.status_code !== 20000 && data.status_code !== 20100) {
         throw new Error(data.status_message || `API error with status code ${data.status_code}`);
@@ -1011,7 +1035,6 @@
       return data.tasks[0].id;
     }
 
-    // STEP 2: Poll GET /v3/serp/google/organic/task_get/advanced/<task_id>
     async function pollTaskResult(taskId, authHeader) {
       const maxAttempts = 20;
       let attempt = 0;
@@ -1020,37 +1043,31 @@
         attempt++;
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        const getUrl = `https://api.dataforseo.com/v3/serp/google/organic/task_get/advanced/${taskId}`;
+        const getUrl = `/api/serp?taskId=${encodeURIComponent(taskId)}&authHeader=${encodeURIComponent(authHeader)}`;
         
         let response;
         try {
           response = await fetch(getUrl, {
-            method: "GET",
-            headers: {
-              "Authorization": authHeader
-            }
+            method: "GET"
           });
         } catch (networkErr) {
           throw new Error(`CORS_OR_NETWORK: ${networkErr.message}`);
         }
 
+        const data = await response.json();
         if (!response.ok) {
           if (response.status === 401) {
             throw new Error("Authentication failed (401) during polling.");
           }
-          throw new Error(`Task fetch HTTP error: ${response.status} ${response.statusText}`);
+          throw new Error(data.error || `Task fetch HTTP error: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
         const task = data.tasks && data.tasks[0];
 
         if (task) {
-          // Check if status is success and result is ready
           if (task.status_code === 20000 && task.result !== null) {
             return task;
           }
-          
-          // Task still in progress (e.g. 40601) or result is null, continue polling
         }
       }
 
