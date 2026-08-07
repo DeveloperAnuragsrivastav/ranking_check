@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google SERP Rank Checker</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --bg-body: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --error-color: #ef4444;
+      --error-bg: #fef2f2;
+      --success-color: #10b981;
+      --success-bg: #ecfdf5;
+      --warning-color: #f59e0b;
+      --warning-bg: #fffbe6;
+      --radius: 12px;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .header-logo svg {
+      width: 26px;
+      height: 26px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+
+    .header p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Card styling */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text-main);
+      background-color: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+
+    .form-control.is-invalid {
+      border-color: var(--error-color);
+      background-color: #fff8f8;
+    }
+
+    .error-text {
+      display: none;
+      font-size: 12px;
+      color: var(--error-color);
+      margin-top: 5px;
+      font-weight: 500;
+    }
+
+    .error-text.active {
+      display: block;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 500px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Custom Select Styling */
+    select.form-control {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2064748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    /* Auth Banner / Credentials Field */
+    .auth-config {
+      background-color: var(--primary-light);
+      border: 1px dashed #c7d2fe;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .auth-config-info {
+      color: #3730a3;
+      font-weight: 500;
+      flex-grow: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .auth-config-btn {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .auth-input-container {
+      display: none;
+      margin-bottom: 20px;
+    }
+
+    .auth-input-container.active {
+      display: block;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      background-color: var(--primary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover:not(:disabled) {
+      background-color: var(--primary-hover);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: #f1f5f9;
+      color: #334155;
+      border: 1px solid var(--border-color);
+      margin-top: 12px;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #e2e8f0;
+    }
+
+    /* Loading Spinner UI */
+    .loading-state {
+      display: none;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .loading-state.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid var(--primary-light);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .loading-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .timer-badge {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 4px 10px;
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 20px;
+    }
+
+    /* Result UI */
+    .result-state {
+      display: none;
+    }
+
+    .result-state.active {
+      display: block;
+    }
+
+    .result-card {
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
+      background: #fafafa;
+    }
+
+    .rank-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+    }
+
+    .rank-badge {
+      font-size: 28px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rank-badge.found {
+      color: var(--success-color);
+    }
+
+    .rank-badge.not-found {
+      color: var(--warning-color);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .rank-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .tag-device {
+      background-color: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .tag-location {
+      background-color: #f3e8ff;
+      color: #6b21a8;
+    }
+
+    .result-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .result-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .result-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .result-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    .result-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .result-link:hover {
+      text-decoration: underline;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 12px;
+      text-align: right;
+    }
+
+    /* Error Alert */
+    .error-alert {
+      display: none;
+      background-color: var(--error-bg);
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 16px;
+      color: #991b1b;
+      margin-top: 16px;
+    }
+
+    .error-alert.active {
+      display: block;
+    }
+
+    .error-alert-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .error-alert-msg {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #7f1d1d;
+    }
+
+    .cors-box {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #ffffff;
+      border: 1px solid #fca5a5;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #334155;
+    }
+
+    .cors-box code {
+      background: #f1f5f9;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #e11d48;
+    }
+
+    /* History Section */
+    .history-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      padding: 24px;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .history-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .history-count {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #fff;
+      transition: background-color 0.15s ease;
+      cursor: pointer;
+    }
+
+    .history-item:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .history-item-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-width: 75%;
+    }
+
+    .history-kw {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .history-rank {
+      font-size: 14px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .history-rank.found {
+      background: var(--success-bg);
+      color: var(--success-color);
+    }
+
+    .history-rank.not-found {
+      background: var(--warning-bg);
+      color: var(--warning-color);
+    }
+
+    .empty-history {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 16px 0;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Header -->
+    <header class="header">
+      <div class="header-logo">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+      </div>
+      <h1>Google SERP Rank Checker</h1>
+      <p>Check domain position in Google Search Results via DataForSEO</p>
+    </header>
+
+    <!-- Main Card -->
+    <div class="card">
+
+      <!-- Auth config banner -->
+      <div class="auth-config">
+        <span class="auth-config-info" id="auth-status-display">Auth: Default Placeholder</span>
+        <button type="button" class="auth-config-btn" id="toggle-auth-btn">Edit Token</button>
+      </div>
+
+      <!-- Auth Customization Input -->
+      <div class="auth-input-container" id="auth-input-container">
+        <div class="form-group">
+          <label for="custom-auth-input">Authorization Header Value</label>
+          <input type="text" id="custom-auth-input" class="form-control" placeholder="Basic login:password (Base64)">
+          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+            Format: <code>Basic &lt;BASE64_LOGIN_PASSWORD&gt;</code>
+          </span>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <form id="serp-form" novalidate>
+        
+        <!-- Keyword -->
+        <div class="form-group">
+          <label for="keyword-input">Keyword <span style="color: var(--error-color);">*</span></label>
+          <input 
+            type="text" 
+            id="keyword-input" 
+            class="form-control" 
+            placeholder="e.g. best apartments in san antonio"
+            required
+          >
+          <div class="error-text" id="keyword-error">Please enter a keyword to check.</div>
+        </div>
+
+        <!-- Domain -->
+        <div class="form-group">
+          <label for="domain-input">Domain to check <span style="color: var(--error-color);">*</span></label>
+          <input 
+            type="text" 
+            id="domain-input" 
+            class="form-control" 
+            placeholder="e.g. thebarcelonalofts.com"
+            required
+          >
+          <div class="error-text" id="domain-error">Please enter a target domain.</div>
+        </div>
+
+        <!-- Grid for Location and Device -->
+        <div class="grid-2">
+          <!-- Device -->
+          <div class="form-group">
+            <label for="device-select">Device</label>
+            <select id="device-select" class="form-control">
+              <option value="desktop" selected>Desktop</option>
+              <option value="mobile">Mobile</option>
+            </select>
+          </div>
+
+          <!-- Location -->
+          <div class="form-group">
+            <label for="location-select">Location</label>
+            <select id="location-select" class="form-control">
+              <option value="2840" selected>United States</option>
+              <option value="2826">United Kingdom</option>
+              <option value="2356">India</option>
+              <option value="2124">Canada</option>
+              <option value="2036">Australia</option>
+              <option value="2276">Germany</option>
+              <option value="2784">United Arab Emirates</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submit-btn" class="btn">
+          <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          Check Rank
+        </button>
+
+      </form>
+
+      <!-- Loading State -->
+      <div class="loading-state" id="loading-state">
+        <div class="spinner"></div>
+        <div class="loading-title">Checking Google Rank...</div>
+        <div class="loading-subtitle">Creating task and fetching SERP data. Usually takes 30–60 seconds.</div>
+        <div class="timer-badge" id="elapsed-timer">Elapsed: 0s</div>
+      </div>
+
+      <!-- Error State -->
+      <div class="error-alert" id="error-alert">
+        <div class="error-alert-title">
+          <svg style="width: 18px; height: 18px; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>Error Occurred</span>
+        </div>
+        <div class="error-alert-msg" id="error-msg">Something went wrong.</div>
+        <div id="cors-explanation" class="cors-box" style="display: none;">
+          <strong>Why is this happening?</strong> DataForSEO API is being called directly from your browser. Browsers block direct cross-origin API calls without CORS headers.
+          <br><br>
+          <strong>Solutions:</strong>
+          <ul style="padding-left: 18px; margin-top: 4px;">
+            <li>Use a browser extension like <code>Allow CORS: Access-Control-Allow-Origin</code>.</li>
+            <li>Or proxy the API requests through a backend server.</li>
+            <li>Make sure your DataForSEO credentials are valid.</li>
+          </ul>
+        </div>
+        <button type="button" class="btn btn-secondary" id="try-again-btn">Try again</button>
+      </div>
+
+      <!-- Result State -->
+      <div class="result-state" id="result-state" style="margin-top: 24px;">
+        <div class="result-card">
+          <div class="rank-header">
+            <div>
+              <span class="result-label">Rank Position</span>
+              <div class="rank-badge" id="res-rank-badge">#--</div>
+            </div>
+            <div class="rank-meta">
+              <span class="tag tag-device" id="res-tag-device">Desktop</span>
+              <span class="tag tag-location" id="res-tag-location">United States</span>
+            </div>
+          </div>
+
+          <div class="result-details">
+            <div class="result-row">
+              <span class="result-label">Keyword</span>
+              <span class="result-value" id="res-keyword">--</span>
+            </div>
+
+            <div class="result-row">
+              <span class="result-label">Target Domain</span>
+              <span class="result-value" id="res-domain">--</span>
+            </div>
+
+            <div class="result-row" id="matched-title-row">
+              <span class="result-label">Matched Page Title</span>
+              <span class="result-value" id="res-title">--</span>
+            </div>
+
+            <div class="result-row" id="matched-url-row">
+              <span class="result-label">Matched URL</span>
+              <span class="result-value">
+                <a href="#" target="_blank" rel="noopener noreferrer" class="result-link" id="res-url">--</a>
+              </span>
+            </div>
+          </div>
+
+          <div class="timestamp" id="res-timestamp">--</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- History Card -->
+    <div class="history-card">
+      <div class="history-header">
+        <div class="history-title">Recent Checks (Session History)</div>
+        <div class="history-count" id="history-count">0 / 5</div>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="empty-history">No recent rank checks in this session yet.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ==========================================
+    // CONFIGURATION & CONSTANTS
+    // ==========================================
+    // Default DataForSEO Authorization header placeholder:
+    const DFS_AUTH = "Basic REPLACE_ME";
+
+    // Country Code Map for readable labels in History & Results
+    const LOCATION_NAMES = {
+      "2840": "United States",
+      "2826": "United Kingdom",
+      "2356": "India",
+      "2124": "Canada",
+      "2036": "Australia",
+      "2276": "Germany",
+      "2784": "United Arab Emirates"
+    };
+
+    // In-memory session history array (max 5 items)
+    let sessionHistory = [];
+    let pollingTimer = null;
+    let elapsedTimer = null;
+    let secondsElapsed = 0;
+
+    // DOM Elements
+    const form = document.getElementById('serp-form');
+    const keywordInput = document.getElementById('keyword-input');
+    const domainInput = document.getElementById('domain-input');
+    const deviceSelect = document.getElementById('device-select');
+    const locationSelect = document.getElementById('location-select');
+    const submitBtn = document.getElementById('submit-btn');
+
+    const keywordError = document.getElementById('keyword-error');
+    const domainError = document.getElementById('domain-error');
+
+    const authStatusDisplay = document.getElementById('auth-status-display');
+    const toggleAuthBtn = document.getElementById('toggle-auth-btn');
+    const authInputContainer = document.getElementById('auth-input-container');
+    const customAuthInput = document.getElementById('custom-auth-input');
+
+    const loadingState = document.getElementById('loading-state');
+    const elapsedTimerEl = document.getElementById('elapsed-timer');
+
+    const errorAlert = document.getElementById('error-alert');
+    const errorMsgEl = document.getElementById('error-msg');
+    const corsExplanation = document.getElementById('cors-explanation');
+    const tryAgainBtn = document.getElementById('try-again-btn');
+
+    const resultState = document.getElementById('result-state');
+    const resRankBadge = document.getElementById('res-rank-badge');
+    const resTagDevice = document.getElementById('res-tag-device');
+    const resTagLocation = document.getElementById('res-tag-location');
+    const resKeyword = document.getElementById('res-keyword');
+    const resDomain = document.getElementById('res-domain');
+    const resTitle = document.getElementById('res-title');
+    const resUrl = document.getElementById('res-url');
+    const matchedTitleRow = document.getElementById('matched-title-row');
+    const matchedUrlRow = document.getElementById('matched-url-row');
+    const resTimestamp = document.getElementById('res-timestamp');
+
+    const historyList = document.getElementById('history-list');
+    const historyCount = document.getElementById('history-count');
+
+    // ==========================================
+    // AUTH HEADER INITIALIZATION
+    // ==========================================
+    function getActiveAuthHeader() {
+      const customVal = customAuthInput.value.trim();
+      if (customVal) return customVal;
+      return DFS_AUTH;
+    }
+
+    // Toggle custom auth input container
+    toggleAuthBtn.addEventListener('click', () => {
+      authInputContainer.classList.toggle('active');
+      if (authInputContainer.classList.contains('active')) {
+        toggleAuthBtn.textContent = 'Close Token Edit';
+      } else {
+        toggleAuthBtn.textContent = 'Edit Token';
+      }
+    });
+
+    customAuthInput.addEventListener('input', () => {
+      const val = customAuthInput.value.trim();
+      if (val) {
+        authStatusDisplay.textContent = "Auth: Custom Token Configured";
+      } else {
+        authStatusDisplay.textContent = "Auth: Default Placeholder";
+      }
+    });
+
+    // ==========================================
+    // DOMAIN SANITIZATION HELPER
+    // ==========================================
+    function sanitizeDomain(domainStr) {
+      if (!domainStr) return "";
+      let clean = domainStr.trim();
+      // Strip protocol (https:// or http://)
+      clean = clean.replace(/^https?:\/\//i, '');
+      // Strip trailing slashes and paths
+      clean = clean.split('/')[0];
+      // Strip trailing slashes specifically
+      clean = clean.replace(/\/+$/, '');
+      return clean.toLowerCase();
+    }
+
+    // ==========================================
+    // FORM VALIDATION & SUBMIT
+    // ==========================================
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      let isValid = true;
+      const rawKeyword = keywordInput.value.trim();
+      const rawDomain = domainInput.value.trim();
+
+      // Reset validation states
+      keywordInput.classList.remove('is-invalid');
+      domainInput.classList.remove('is-invalid');
+      keywordError.classList.remove('active');
+      domainError.classList.remove('active');
+      hideError();
+      hideResult();
+
+      if (!rawKeyword) {
+        keywordInput.classList.add('is-invalid');
+        keywordError.classList.add('active');
+        isValid = false;
+      }
+
+      if (!rawDomain) {
+        domainInput.classList.add('is-invalid');
+        domainError.classList.add('active');
+        isValid = false;
+      }
+
+      if (!isValid) return;
+
+      const cleanDomain = sanitizeDomain(rawDomain);
+      const selectedLocationCode = parseInt(locationSelect.value, 10);
+      const selectedDevice = deviceSelect.value;
+      const authHeader = getActiveAuthHeader();
+
+      // Start check rank execution
+      startCheckRank({
+        keyword: rawKeyword,
+        domain: cleanDomain,
+        locationCode: selectedLocationCode,
+        device: selectedDevice,
+        authHeader: authHeader
+      });
+    });
+
+    tryAgainBtn.addEventListener('click', () => {
+      hideError();
+      form.dispatchEvent(new Event('submit'));
+    });
+
+    // ==========================================
+    // RANK CHECKER API FLOW
+    // ==========================================
+    async function startCheckRank(params) {
+      setLoadingState(true);
+
+      try {
+        // STEP 1: POST to create the task
+        const taskId = await createTask(params);
+
+        if (!taskId) {
+          throw new Error("Failed to retrieve a valid task ID from DataForSEO.");
+        }
+
+        // STEP 2: Poll for results (max 20 attempts, 5s interval)
+        const pollResult = await pollTaskResult(taskId, params.authHeader);
+
+        // STEP 3: Parse result
+        const rankInfo = parseSerpResults(pollResult, params.domain);
+
+        // Render Success Card
+        renderResult({
+          keyword: params.keyword,
+          domain: params.domain,
+          device: params.device,
+          locationCode: params.locationCode,
+          rankInfo: rankInfo
+        });
+
+        // Add to history
+        addToHistory({
+          keyword: params.keyword,
+          domain: params.domain,
+          device: params.device,
+          locationCode: params.locationCode,
+          rankInfo: rankInfo,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+
+      } catch (err) {
+        console.error("SERP Check Error:", err);
+        handleError(err);
+      } finally {
+        setLoadingState(false);
+      }
+    }
+
+    // STEP 1: POST /v3/serp/google/organic/task_post
+    async function createTask({ keyword, domain, locationCode, device, authHeader }) {
+      const url = "https://api.dataforseo.com/v3/serp/google/organic/task_post";
+      
+      const payload = [
+        {
+          "keyword": keyword,
+          "location_code": locationCode,
+          "language_code": "en",
+          "device": device,
+          "target": domain,
+          "priority": 2
+        }
+      ];
+
+      let response;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Authorization": authHeader,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (networkErr) {
+        // Catch CORS / Network level errors specifically
+        throw new Error(`CORS_OR_NETWORK: ${networkErr.message}`);
+      }
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication failed (401). Please check your DataForSEO credentials.");
+        }
+        throw new Error(`Task creation HTTP error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status_code !== 20000 && data.status_code !== 20100) {
+        throw new Error(data.status_message || `API error with status code ${data.status_code}`);
+      }
+
+      if (!data.tasks || !data.tasks[0] || !data.tasks[0].id) {
+        throw new Error("Invalid response format: Task ID missing.");
+      }
+
+      return data.tasks[0].id;
+    }
+
+    // STEP 2: Poll GET /v3/serp/google/organic/task_get/advanced/<task_id>
+    async function pollTaskResult(taskId, authHeader) {
+      const maxAttempts = 20;
+      let attempt = 0;
+
+      while (attempt < maxAttempts) {
+        attempt++;
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        const getUrl = `https://api.dataforseo.com/v3/serp/google/organic/task_get/advanced/${taskId}`;
+        
+        let response;
+        try {
+          response = await fetch(getUrl, {
+            method: "GET",
+            headers: {
+              "Authorization": authHeader
+            }
+          });
+        } catch (networkErr) {
+          throw new Error(`CORS_OR_NETWORK: ${networkErr.message}`);
+        }
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Authentication failed (401) during polling.");
+          }
+          throw new Error(`Task fetch HTTP error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const task = data.tasks && data.tasks[0];
+
+        if (task) {
+          // Check if status is success and result is ready
+          if (task.status_code === 20000 && task.result !== null) {
+            return task;
+          }
+          
+          // Task still in progress (e.g. 40601) or result is null, continue polling
+        }
+      }
+
+      throw new Error("TIMEOUT: Task execution timed out after 100 seconds without completing.");
+    }
+
+    // STEP 3: Parse Result
+    function parseSerpResults(task, targetDomain) {
+      if (!task || !task.result || !task.result[0] || !task.result[0].items) {
+        return { found: false };
+      }
+
+      const items = task.result[0].items;
+      const organicItems = items.filter(item => item.type === "organic");
+
+      // Find item whose domain or URL contains target domain
+      const matched = organicItems.find(item => {
+        if (item.domain && item.domain.toLowerCase().includes(targetDomain)) {
+          return true;
+        }
+        if (item.url && item.url.toLowerCase().includes(targetDomain)) {
+          return true;
+        }
+        return false;
+      });
+
+      if (matched) {
+        return {
+          found: true,
+          rankAbsolute: matched.rank_absolute,
+          rankGroup: matched.rank_group,
+          url: matched.url,
+          title: matched.title || "No Title Available"
+        };
+      }
+
+      return { found: false };
+    }
+
+    // ==========================================
+    // UI RENDER FUNCTIONS
+    // ==========================================
+    function setLoadingState(isLoading) {
+      submitBtn.disabled = isLoading;
+      keywordInput.disabled = isLoading;
+      domainInput.disabled = isLoading;
+      deviceSelect.disabled = isLoading;
+      locationSelect.disabled = isLoading;
+
+      if (isLoading) {
+        loadingState.classList.add('active');
+        secondsElapsed = 0;
+        elapsedTimerEl.textContent = `Elapsed: 0s`;
+        elapsedTimer = setInterval(() => {
+          secondsElapsed++;
+          elapsedTimerEl.textContent = `Elapsed: ${secondsElapsed}s`;
+        }, 1000);
+      } else {
+        loadingState.classList.remove('active');
+        if (elapsedTimer) {
+          clearInterval(elapsedTimer);
+          elapsedTimer = null;
+        }
+      }
+    }
+
+    function renderResult({ keyword, domain, device, locationCode, rankInfo }) {
+      resultState.classList.add('active');
+
+      resKeyword.textContent = keyword;
+      resDomain.textContent = domain;
+      resTagDevice.textContent = device.charAt(0).toUpperCase() + device.slice(1);
+      resTagLocation.textContent = LOCATION_NAMES[locationCode] || `Code ${locationCode}`;
+      resTimestamp.textContent = `Checked at ${new Date().toLocaleTimeString()} on ${new Date().toLocaleDateString()}`;
+
+      if (rankInfo.found) {
+        resRankBadge.className = "rank-badge found";
+        resRankBadge.textContent = `#${rankInfo.rankAbsolute}`;
+        
+        matchedTitleRow.style.display = "flex";
+        matchedUrlRow.style.display = "flex";
+        resTitle.textContent = rankInfo.title;
+        resUrl.textContent = rankInfo.url;
+        resUrl.href = rankInfo.url;
+      } else {
+        resRankBadge.className = "rank-badge not-found";
+        resRankBadge.textContent = "Not found in top results";
+
+        matchedTitleRow.style.display = "none";
+        matchedUrlRow.style.display = "none";
+      }
+    }
+
+    function hideResult() {
+      resultState.classList.remove('active');
+    }
+
+    function handleError(err) {
+      errorAlert.classList.add('active');
+      const msg = err.message || "An unexpected error occurred.";
+
+      if (msg.includes("CORS_OR_NETWORK") || msg.includes("Failed to fetch") || err.name === "TypeError") {
+        errorMsgEl.textContent = "Network / CORS Request Failed. Unable to reach DataForSEO directly from the browser.";
+        corsExplanation.style.display = "block";
+      } else {
+        errorMsgEl.textContent = msg;
+        corsExplanation.style.display = "none";
+      }
+    }
+
+    function hideError() {
+      errorAlert.classList.remove('active');
+    }
+
+    // ==========================================
+    // HISTORY MANAGEMENT (Last 5 checks)
+    // ==========================================
+    function addToHistory(item) {
+      // Add to beginning of array
+      sessionHistory.unshift(item);
+      // Keep max 5 items
+      if (sessionHistory.length > 5) {
+        sessionHistory.pop();
+      }
+      renderHistory();
+    }
+
+    function renderHistory() {
+      historyCount.textContent = `${sessionHistory.length} / 5`;
+
+      if (sessionHistory.length === 0) {
+        historyList.innerHTML = '<div class="empty-history">No recent rank checks in this session yet.</div>';
+        return;
+      }
+
+      historyList.innerHTML = sessionHistory.map((item, index) => {
+        const locName = LOCATION_NAMES[item.locationCode] || item.locationCode;
+        const rankDisplay = item.rankInfo.found ? `#${item.rankInfo.rankAbsolute}` : 'Not Top 100';
+        const rankClass = item.rankInfo.found ? 'found' : 'not-found';
+        const deviceLabel = item.device.charAt(0).toUpperCase() + item.device.slice(1);
+
+        return `
+          <div class="history-item" onclick="loadHistoryItem(${index})">
+            <div class="history-item-main">
+              <div class="history-kw">${escapeHtml(item.keyword)}</div>
+              <div class="history-sub">
+                <span>${escapeHtml(item.domain)}</span> • 
+                <span>${locName} (${deviceLabel})</span> • 
+                <span>${item.timestamp}</span>
+              </div>
+            </div>
+            <div class="history-rank ${rankClass}">
+              ${rankDisplay}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function loadHistoryItem(index) {
+      const item = sessionHistory[index];
+      if (!item) return;
+
+      keywordInput.value = item.keyword;
+      domainInput.value = item.domain;
+      deviceSelect.value = item.device;
+      locationSelect.value = item.locationCode.toString();
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+  </script>
+</body>
+</html>
