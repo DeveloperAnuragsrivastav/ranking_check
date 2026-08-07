@@ -591,9 +591,9 @@
       <div class="auth-input-container" id="auth-input-container">
         <div class="form-group">
           <label for="custom-auth-input">Authorization Header Value</label>
-          <input type="text" id="custom-auth-input" class="form-control" placeholder="Basic login:password (Base64)">
+          <input type="text" id="custom-auth-input" class="form-control" placeholder="Paste the full header or just the base64 value">
           <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
-            Format: <code>Basic &lt;BASE64_LOGIN_PASSWORD&gt;</code>
+            Format: <code>Basic &lt;BASE64_LOGIN_PASSWORD&gt;</code> or just the base64 value.
           </span>
         </div>
       </div>
@@ -818,7 +818,13 @@
     // ==========================================
     function getActiveAuthHeader() {
       const customVal = customAuthInput.value.trim();
-      if (customVal) return customVal;
+      if (customVal) {
+        const normalized = customVal.trim();
+        if (/^basic\s+/i.test(normalized)) {
+          return normalized;
+        }
+        return `Basic ${normalized}`;
+      }
       return DFS_AUTH;
     }
 
