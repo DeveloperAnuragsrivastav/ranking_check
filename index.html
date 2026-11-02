@@ -328,7 +328,7 @@
     }
 
     .rank-badge {
-      font-size: 28px;
+      font-size: 22px;
       font-weight: 800;
       display: flex;
       align-items: center;
@@ -653,6 +653,16 @@
           </div>
         </div>
 
+        <!-- Depth -->
+        <div class="form-group">
+          <label for="depth-select">Results to check</label>
+          <select id="depth-select" class="form-control">
+            <option value="10">Top 10 (1 page)</option>
+            <option value="20">Top 20 (2 pages)</option>
+            <option value="100" selected>Top 100 (10 pages)</option>
+          </select>
+        </div>
+
         <!-- Submit Button -->
         <button type="submit" id="submit-btn" class="btn">
           <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -768,7 +778,7 @@
       "2784": "United Arab Emirates"
     };
 
-    // SERP features checked when a domain has no organic rank
+    // SERP features checked alongside the organic rank
     const SERP_FEATURES = {
       local_pack: "Map pack",
       knowledge_graph: "Knowledge panel"
@@ -785,6 +795,7 @@
     const keywordInput = document.getElementById('keyword-input');
     const domainInput = document.getElementById('domain-input');
     const deviceSelect = document.getElementById('device-select');
+    const depthSelect = document.getElementById('depth-select');
     const locationSelect = document.getElementById('location-select');
     const submitBtn = document.getElementById('submit-btn');
 
@@ -934,6 +945,7 @@
       const cleanDomain = sanitizeDomain(rawDomain);
       const selectedLocationCode = parseInt(locationSelect.value, 10);
       const selectedDevice = deviceSelect.value;
+      const selectedDepth = parseInt(depthSelect.value, 10);
       const authHeader = getActiveAuthHeader();
 
       // Start check rank execution
@@ -942,6 +954,7 @@
         domain: cleanDomain,
         locationCode: selectedLocationCode,
         device: selectedDevice,
+        depth: selectedDepth,
         authHeader: authHeader
       });
     });
@@ -969,16 +982,16 @@
         const pollResult = await pollTaskResult(taskId, params.authHeader);
 
         // STEP 3: Parse result
-        let rankInfo = parseSerpResults(pollResult, params.domain);
-        if (!rankInfo.found) {
-          rankInfo = await findInSerpFeatures(pollResult, params.domain, params.authHeader);
-        }
+        const organicRank = parseSerpResults(pollResult, params.domain);
+        const featureRanks = await findInSerpFeatures(pollResult, params.domain, params.authHeader);
+        const rankInfo = combineRanks(organicRank, featureRanks);
 
         // Render Success Card
         renderResult({
           keyword: params.keyword,
           domain: params.domain,
           device: params.device,
+          depth: params.depth,
           locationCode: params.locationCode,
           rankInfo: rankInfo
         });
@@ -988,6 +1001,7 @@
           keyword: params.keyword,
           domain: params.domain,
           device: params.device,
+          depth: params.depth,
           locationCode: params.locationCode,
           rankInfo: rankInfo,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1001,7 +1015,7 @@
       }
     }
 
-    async function createTask({ keyword, domain, locationCode, device, authHeader }) {
+    async function createTask({ keyword, domain, locationCode, device, depth, authHeader }) {
       const url = "/api/serp";
       
       const payload = {
@@ -1009,6 +1023,7 @@
         domain,
         locationCode,
         device,
+        depth,
         authHeader
       };
 
@@ -1145,40 +1160,42 @@
       return Object.fromEntries(task.result.map(row => [row.goto, row.url]));
     }
 
-    // Used when a domain has no organic rank but may still appear in a SERP feature
+    // Finds the domain's best position in each SERP feature
     async function findInSerpFeatures(task, targetDomain, authHeader) {
       const items = (task && task.result && task.result[0] && task.result[0].items) || [];
       const featureItems = items.filter(item => SERP_FEATURES[item.type] && item.url);
 
-      const toRankInfo = (item, url) => ({
-        found: true,
-        feature: SERP_FEATURES[item.type],
-        rankAbsolute: item.rank_absolute,
-        rankGroup: item.rank_group,
-        url,
-        title: item.title || "No Title Available"
+      const wrappedUrls = featureItems.filter(isGotoResult).map(item => item.url);
+      const resolved = wrappedUrls.length > 0 ? await resolveGotoUrls(wrappedUrls, authHeader) : {};
+
+      const matches = [];
+      featureItems.forEach(item => {
+        const url = resolved[item.url] || item.url;
+        const feature = SERP_FEATURES[item.type];
+        if (isGotoResult({ url }) || matches.some(match => match.feature === feature)) {
+          return;
+        }
+        if (isTargetHost(new URL(url).hostname.toLowerCase(), targetDomain)) {
+          matches.push({ feature, rankGroup: item.rank_group, url, title: item.title || "No Title Available" });
+        }
       });
 
-      const direct = featureItems.find(item =>
-        !isGotoResult(item) && isTargetHost(new URL(item.url).hostname.toLowerCase(), targetDomain));
-      if (direct) {
-        return toRankInfo(direct, direct.url);
+      return matches;
+    }
+
+    function combineRanks(organic, features) {
+      if (organic.found) {
+        return { ...organic, features };
       }
-
-      const wrappedItems = featureItems.filter(isGotoResult);
-      if (wrappedItems.length === 0) {
-        return { found: false };
-      }
-
-      const resolved = await resolveGotoUrls(wrappedItems.map(item => item.url), authHeader);
-      const matched = wrappedItems.find(item =>
-        resolved[item.url] && isTargetHost(new URL(resolved[item.url]).hostname.toLowerCase(), targetDomain));
-
-      return matched ? toRankInfo(matched, resolved[matched.url]) : { found: false };
+      return features.length > 0 ? { ...features[0], found: true, features } : { found: false, features };
     }
 
     function formatRank(rankInfo) {
-      return rankInfo.feature ? `${rankInfo.feature} #${rankInfo.rankGroup}` : `#${rankInfo.rankAbsolute}`;
+      const ranks = rankInfo.features.map(item => `${item.feature} #${item.rankGroup}`);
+      if (rankInfo.rankAbsolute) {
+        ranks.unshift(`Organic #${rankInfo.rankAbsolute}`);
+      }
+      return ranks.join(' · ');
     }
 
     // ==========================================
@@ -1189,6 +1206,7 @@
       keywordInput.disabled = isLoading;
       domainInput.disabled = isLoading;
       deviceSelect.disabled = isLoading;
+      depthSelect.disabled = isLoading;
       locationSelect.disabled = isLoading;
 
       if (isLoading) {
@@ -1208,7 +1226,7 @@
       }
     }
 
-    function renderResult({ keyword, domain, device, locationCode, rankInfo }) {
+    function renderResult({ keyword, domain, device, depth, locationCode, rankInfo }) {
       resultState.classList.add('active');
 
       resKeyword.textContent = keyword;
@@ -1228,7 +1246,7 @@
         resUrl.href = rankInfo.url;
       } else {
         resRankBadge.className = "rank-badge not-found";
-        resRankBadge.textContent = "Not found in top results";
+        resRankBadge.textContent = `Not found in top ${depth}`;
 
         matchedTitleRow.style.display = "none";
         matchedUrlRow.style.display = "none";
@@ -1279,7 +1297,7 @@
 
       historyList.innerHTML = sessionHistory.map((item, index) => {
         const locName = LOCATION_NAMES[item.locationCode] || item.locationCode;
-        const rankDisplay = item.rankInfo.found ? formatRank(item.rankInfo) : 'Not Top 100';
+        const rankDisplay = item.rankInfo.found ? formatRank(item.rankInfo) : `Not Top ${item.depth}`;
         const rankClass = item.rankInfo.found ? 'found' : 'not-found';
         const deviceLabel = item.device.charAt(0).toUpperCase() + item.device.slice(1);
 
@@ -1308,6 +1326,7 @@
       keywordInput.value = item.keyword;
       domainInput.value = item.domain;
       deviceSelect.value = item.device;
+      depthSelect.value = item.depth.toString();
       locationSelect.value = item.locationCode.toString();
 
       window.scrollTo({ top: 0, behavior: 'smooth' });

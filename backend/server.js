@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
 
 app.post('/api/serp', async (req, res) => {
   try {
-    const { keyword, domain, locationCode, device, authHeader } = req.body;
+    const { keyword, domain, locationCode, device, depth, authHeader } = req.body;
 
     if (!keyword || !domain) {
       return res.status(400).json({ error: 'Keyword and domain are required.' });
@@ -34,7 +34,7 @@ app.post('/api/serp', async (req, res) => {
       location_code: locationCode || 2840,
       language_code: 'en',
       device: device || 'desktop',
-      depth: 100,
+      depth: depth || 100,
       priority: 2
     }];
 
