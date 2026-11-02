@@ -667,7 +667,7 @@
       <div class="loading-state" id="loading-state">
         <div class="spinner"></div>
         <div class="loading-title">Checking Google Rank...</div>
-        <div class="loading-subtitle">Creating task and fetching SERP data. Usually takes 30–60 seconds.</div>
+        <div class="loading-subtitle">Creating task and fetching SERP data. Usually takes 1–2 minutes.</div>
         <div class="timer-badge" id="elapsed-timer">Elapsed: 0s</div>
       </div>
 
@@ -766,6 +766,12 @@
       "2036": "Australia",
       "2276": "Germany",
       "2784": "United Arab Emirates"
+    };
+
+    // SERP features checked when a domain has no organic rank
+    const SERP_FEATURES = {
+      local_pack: "Map pack",
+      knowledge_graph: "Knowledge panel"
     };
 
     // In-memory session history array (max 5 items)
@@ -889,7 +895,8 @@
       clean = clean.split('/')[0];
       // Strip trailing slashes specifically
       clean = clean.replace(/\/+$/, '');
-      return clean.toLowerCase();
+      // Strip www so subdomain matching works for every host
+      return clean.toLowerCase().replace(/^www\./, '');
     }
 
     // ==========================================
@@ -958,11 +965,14 @@
           throw new Error("Failed to retrieve a valid task ID from DataForSEO.");
         }
 
-        // STEP 2: Poll for results (max 20 attempts, 5s interval)
+        // STEP 2: Poll for results (max 40 attempts, 5s interval)
         const pollResult = await pollTaskResult(taskId, params.authHeader);
 
         // STEP 3: Parse result
-        const rankInfo = parseSerpResults(pollResult, params.domain);
+        let rankInfo = parseSerpResults(pollResult, params.domain);
+        if (!rankInfo.found) {
+          rankInfo = await findInSerpFeatures(pollResult, params.domain, params.authHeader);
+        }
 
         // Render Success Card
         renderResult({
@@ -1036,7 +1046,7 @@
     }
 
     async function pollTaskResult(taskId, authHeader) {
-      const maxAttempts = 20;
+      const maxAttempts = 40;
       let attempt = 0;
 
       while (attempt < maxAttempts) {
@@ -1071,7 +1081,23 @@
         }
       }
 
-      throw new Error("TIMEOUT: Task execution timed out after 100 seconds without completing.");
+      throw new Error("TIMEOUT: Task execution timed out after 200 seconds without completing.");
+    }
+
+    // Google wraps many results in google.com/goto links, so DataForSEO reports
+    // their domain as google.com. The real site only survives in the breadcrumb.
+    function isGotoResult(item) {
+      return /^https?:\/\/(www\.)?google\.[a-z.]+\/goto\?/i.test(item.url || '');
+    }
+
+    function getResultHost(item) {
+      const source = isGotoResult(item) ? item.breadcrumb : (item.domain || item.url);
+      const match = (source || '').trim().match(/^(?:https?:\/\/)?([a-z0-9.-]+\.[a-z]{2,})(?=$|[\s\/›])/i);
+      return match ? match[1].toLowerCase() : '';
+    }
+
+    function isTargetHost(host, targetDomain) {
+      return host === targetDomain || host.endsWith(`.${targetDomain}`);
     }
 
     // STEP 3: Parse Result
@@ -1081,30 +1107,78 @@
       }
 
       const items = task.result[0].items;
-      const organicItems = items.filter(item => item.type === "organic");
+      const rankedItems = items.filter(item => item.type === "organic" || item.type === "featured_snippet");
 
-      // Find item whose domain or URL contains target domain
-      const matched = organicItems.find(item => {
-        if (item.domain && item.domain.toLowerCase().includes(targetDomain)) {
-          return true;
-        }
-        if (item.url && item.url.toLowerCase().includes(targetDomain)) {
-          return true;
-        }
-        return false;
-      });
+      // Find item hosted on the target domain or one of its subdomains
+      const matched = rankedItems.find(item => isTargetHost(getResultHost(item), targetDomain));
 
       if (matched) {
         return {
           found: true,
           rankAbsolute: matched.rank_absolute,
           rankGroup: matched.rank_group,
-          url: matched.url,
+          url: isGotoResult(matched) ? `https://${getResultHost(matched)}` : matched.url,
           title: matched.title || "No Title Available"
         };
       }
 
       return { found: false };
+    }
+
+    // Map pack links are wrapped with no breadcrumb, so they have to be converted
+    async function resolveGotoUrls(urls, authHeader) {
+      const response = await fetch("/api/goto", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ urls, authHeader })
+      });
+
+      const data = await response.json();
+      const task = data.tasks && data.tasks[0];
+
+      if (!response.ok || !task || task.status_code !== 20000) {
+        throw new Error(data.error || (task && task.status_message) || "Could not resolve map pack links.");
+      }
+
+      return Object.fromEntries(task.result.map(row => [row.goto, row.url]));
+    }
+
+    // Used when a domain has no organic rank but may still appear in a SERP feature
+    async function findInSerpFeatures(task, targetDomain, authHeader) {
+      const items = (task && task.result && task.result[0] && task.result[0].items) || [];
+      const featureItems = items.filter(item => SERP_FEATURES[item.type] && item.url);
+
+      const toRankInfo = (item, url) => ({
+        found: true,
+        feature: SERP_FEATURES[item.type],
+        rankAbsolute: item.rank_absolute,
+        rankGroup: item.rank_group,
+        url,
+        title: item.title || "No Title Available"
+      });
+
+      const direct = featureItems.find(item =>
+        !isGotoResult(item) && isTargetHost(new URL(item.url).hostname.toLowerCase(), targetDomain));
+      if (direct) {
+        return toRankInfo(direct, direct.url);
+      }
+
+      const wrappedItems = featureItems.filter(isGotoResult);
+      if (wrappedItems.length === 0) {
+        return { found: false };
+      }
+
+      const resolved = await resolveGotoUrls(wrappedItems.map(item => item.url), authHeader);
+      const matched = wrappedItems.find(item =>
+        resolved[item.url] && isTargetHost(new URL(resolved[item.url]).hostname.toLowerCase(), targetDomain));
+
+      return matched ? toRankInfo(matched, resolved[matched.url]) : { found: false };
+    }
+
+    function formatRank(rankInfo) {
+      return rankInfo.feature ? `${rankInfo.feature} #${rankInfo.rankGroup}` : `#${rankInfo.rankAbsolute}`;
     }
 
     // ==========================================
@@ -1145,7 +1219,7 @@
 
       if (rankInfo.found) {
         resRankBadge.className = "rank-badge found";
-        resRankBadge.textContent = `#${rankInfo.rankAbsolute}`;
+        resRankBadge.textContent = formatRank(rankInfo);
         
         matchedTitleRow.style.display = "flex";
         matchedUrlRow.style.display = "flex";
@@ -1205,7 +1279,7 @@
 
       historyList.innerHTML = sessionHistory.map((item, index) => {
         const locName = LOCATION_NAMES[item.locationCode] || item.locationCode;
-        const rankDisplay = item.rankInfo.found ? `#${item.rankInfo.rankAbsolute}` : 'Not Top 100';
+        const rankDisplay = item.rankInfo.found ? formatRank(item.rankInfo) : 'Not Top 100';
         const rankClass = item.rankInfo.found ? 'found' : 'not-found';
         const deviceLabel = item.device.charAt(0).toUpperCase() + item.device.slice(1);
 

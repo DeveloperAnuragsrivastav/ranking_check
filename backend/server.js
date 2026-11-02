@@ -34,7 +34,7 @@ app.post('/api/serp', async (req, res) => {
       location_code: locationCode || 2840,
       language_code: 'en',
       device: device || 'desktop',
-      target: domain,
+      depth: 100,
       priority: 2
     }];
 
@@ -54,6 +54,36 @@ app.post('/api/serp', async (req, res) => {
 
     const taskId = taskData.tasks[0].id;
     return res.json(taskData);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Backend request failed.', details: error.message });
+  }
+});
+
+app.post('/api/goto', async (req, res) => {
+  try {
+    const { urls, authHeader } = req.body;
+    const authValue = authHeader || process.env.DATAFORSEO_AUTH_HEADER;
+
+    if (!urls?.length || !authValue) {
+      return res.status(400).json({ error: 'URLs and auth header are required.' });
+    }
+
+    const convertResponse = await fetch('https://api.dataforseo.com/v3/appendix/goto_url_converter', {
+      method: 'POST',
+      headers: {
+        Authorization: authValue,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify([{ goto_urls: urls }])
+    });
+
+    const convertData = await convertResponse.json();
+    if (!convertResponse.ok) {
+      return res.status(convertResponse.status || 500).json(convertData);
+    }
+
+    return res.json(convertData);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Backend request failed.', details: error.message });
